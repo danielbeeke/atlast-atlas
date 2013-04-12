@@ -1,0 +1,43 @@
+<?php
+/**
+ * @file
+ * Code for the Atlast map Locations feature.
+ */
+
+include_once 'atlast_map_locations.features.inc';
+
+/**
+ * Implements hook_menu().
+ */
+function atlast_map_locations_menu() {
+  $items['atlas/menu'] = array(
+    'page callback' => 'atlast_map_locations_api_menu',
+    'access callback' => TRUE,
+    // This delivery callback json encodes the render array and prints it.
+    'delivery callback' => 'atlast_map_locations_json_deliver',
+    'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+/**
+ * Page callback.
+ */
+function atlast_map_locations_api_menu() {
+  return array('items' => array(
+    array('title' => 'Tesst 1'),
+    array('title' => 'Blabla')
+  ));
+}
+
+/**
+ * Delivery callback to print json.
+ */
+function atlast_map_locations_json_deliver($render, $jsonp = FALSE) {
+  $json = json_encode($render);
+
+  drupal_add_http_header('content-type', 'application/json');
+
+  print $json;
+}

@@ -1,0 +1,258 @@
+<?php
+/**
+ * @file
+ * Provides field widget hooks for Leaflet GeoJSON widget module.
+ */
+
+/**
+ * Implements hook_library().
+ */
+function leaflet_geojson_widget_library() {
+  $libraries['leaflet.draw'] = array(
+    'title' => 'Leaflet',
+    'website' => 'https://github.com/jacobtoye/Leaflet.draw',
+    'version' => '0.1',
+    'js' => array(
+      array(
+        'type' => 'file',
+        'data' => libraries_get_path('leaflet.draw') . '/dist/leaflet.draw.js',
+        'group' => JS_LIBRARY,
+        'preprocess' => FALSE,
+      ),
+      array(
+        'type' => 'file',
+        'data' => libraries_get_path('json3') . '/json3.min.js',
+        'group' => JS_LIBRARY,
+        'preprocess' => FALSE,
+      ),
+    ),
+    'css' => array(
+      libraries_get_path('leaflet.draw') . '/dist/leaflet.draw.css' => array(
+        'type' => 'file',
+        'media' => 'screen',
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Implements hook_requirements().
+ */
+function leaflet_geojson_widget_requirements($phase) {
+  $requirements = array();
+
+  // ensure js library is available
+  if ($phase == 'runtime' && !file_exists(libraries_get_path('leaflet.draw') . '/dist/leaflet.draw.js')) {
+    $requirements['leaflet.draw'] = array(
+      'title' => t('Leaflet.draw library not found'),
+      'value' => t('The !leafletdraw javascript library was not found. Please !download it into the libraries folder.',
+        array(
+          '!leafletdraw' => l('Leaflet.draw', 'https://github.com/Leaflet/Leaflet.draw'),
+          '!download' => l('download', 'https://github.com/Leaflet/Leaflet.draw'),
+        )
+      ),
+      'severity' => REQUIREMENT_ERROR,
+    );
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function leaflet_geojson_widget_field_widget_info() {
+  $widgets = array();
+
+  $widgets['leaflet_geojson_widget'] = array(
+    'label' => t('Leaflet Draw'),
+    'field types' => array('text_long'),
+  );
+
+  return $widgets;
+}
+
+/**
+ * Implements hook_field_widget_settings_form().
+ */
+function leaflet_geojson_widget_field_widget_settings_form($field, $instance) {
+  // Get the settings.
+  $widget = $instance['widget'];
+  $settings = $widget['settings'];
+
+  if ($widget['type'] == 'leaflet_geojson_widget') {
+    $form = array();
+
+    // Center latitude.
+    $form['leaflet_geojson_widget_center_lat'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Default center latitude'),
+      '#default_value' => isset($settings['leaflet_geojson_widget_center_lat']) ? $settings['leaflet_geojson_widget_center_lat'] : 0,
+    );
+
+    // Center longitude.
+    $form['leaflet_geojson_widget_center_lon'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Default center longitude'),
+      '#default_value' => isset($settings['leaflet_geojson_widget_center_lon']) ? $settings['leaflet_geojson_widget_center_lon'] : 0,
+    );
+
+    // Zoom level.
+    $form['leaflet_geojson_widget_zoom'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Default zoom level'),
+      '#default_value' => isset($settings['leaflet_geojson_widget_zoom']) ? $settings['leaflet_geojson_widget_zoom'] : 0,
+    );
+
+    // The Leaflet.draw tools.
+    $tool_options = array(
+      'polyline' => t('Polyline'),
+      'marker' => t('Marker'),
+      'rectangle' => t('Rectangle'),
+      'circle' => t('Circle'),
+      'polygon' => t('Polygon'),
+    );
+
+    // Leaflet tool selector.
+    $form['leaflet_geojson_widget_tools'] = array(
+      '#type' => 'checkboxes',
+      '#required' => TRUE,
+      '#options' => $tool_options,
+      '#default_value' => isset($settings['leaflet_geojson_widget_tools']) ? $settings['leaflet_geojson_widget_tools'] : array('marker'),
+    );
+
+    // Get all maps of the site, prepare them for a select.
+    foreach (leaflet_map_get_info() as $key => $map) {
+      $map_options[$key] = $map['label'];
+    }
+
+    // Leaflet map selector.
+    $form['leaflet_geojson_widget_map'] = array(
+      '#type' => 'select',
+      '#options' => $map_options,
+      '#default_value' => isset($settings['leaflet_geojson_widget_map']) ? $settings['leaflet_geojson_widget_map'] : leaflet_map_get_info('OSM Mapnik'),
+    );
+
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function leaflet_geojson_widget_field_widget_form(&$form, &$form_state, $field, $instance,
+  $langcode, $items, $delta, $base) {
+
+  $widget = $instance['widget'];
+  $settings = $instance['widget']['settings'];
+  $element = geofield_get_base_element($base, $items, $delta);
+
+  $element['value'] = array(
+    '#type' => 'textarea',
+    '#default_value' => isset($items[$delta]['value']) ? $items[$delta]['value'] : NULL,
+    '#rows' => $instance['widget']['settings']['rows'],
+    '#attributes' => array('class' => array('text-full')),
+  );
+
+  // Get the settings for the leaflet map.
+  $map = leaflet_map_get_info($settings['leaflet_geojson_widget_map']);
+
+  $map_settings_decoded = (array) json_decode($settings['leaflet_geojson_widget_map_alter_json']);
+
+  // Set the default zoom.
+  if (isset($settings['leaflet_geojson_widget_zoom'])) {
+    $map['settings']['zoom'] = $settings['leaflet_geojson_widget_zoom'];
+  }
+
+  // Merge json settings with the map settings.
+  if ($map_settings_decoded) {
+    $map['settings'] = array_merge($map['settings'], $map_settings_decoded);
+  }
+
+  // Add the center to the map
+  if (isset($items[$delta]['lat']) && isset($items[$delta]['lon'])) {
+    $map['settings']['center'] = array(
+      'lat' => $items[$delta]['lat'],
+      'lng' => $items[$delta]['lon']
+    );
+  // Fallback to the widget default.
+  } else if (isset($settings['leaflet_geojson_widget_center_lat']) && isset($settings['leaflet_geojson_widget_center_lon'])) {
+    $map['settings']['center'] = array(
+      'lat' => $settings['leaflet_geojson_widget_center_lat'],
+      'lng' => $settings['leaflet_geojson_widget_center_lon'],
+    );
+  }
+  // Fallback to a default, else leaflet won't render see http://drupal.org/node/1799154.
+  else {
+    $map['settings']['center'] = array(
+      'lat' => 39.50,
+      'lng' => -98.35,
+    );
+  }
+
+  // Render the map.
+  $element['map'] = array(
+    '#markup' => '<label>' . $instance['label'] . '</label>' . leaflet_render_map($map),
+  );
+
+  drupal_add_library('leaflet_geojson_widget', 'leaflet.draw');
+
+  // Without the weight Leaflet crashes.
+  drupal_add_js(drupal_get_path('module', 'leaflet_geojson_widget') . '/leaflet_geojson_widget.js', array(
+    'weight' => 1600,
+  ));
+
+  // In the after build we can check what html id has been assigned to the textfield.
+  $element['#after_build'][] = 'leaflet_geojson_widget_field_widget_after_build';
+
+  return $element;
+}
+
+/**
+ * Implements a FAPI #after_build.
+ */
+function leaflet_geojson_widget_field_widget_after_build($element, &$form_state) {
+  $settings = $form_state['field'][$element['#field_name']][$element['#language']]['instance']['widget']['settings'];
+
+  // Parse the rendered map variable so we can get the leaflet map id.
+  // This shouldn't be done this way. TODO make this better in the leaflet module.
+  $map_id_exploded = explode('<div id="', $element['map']['#markup']);
+  $map_id_exploded_part_two = explode('"', $map_id_exploded[1]);
+  $map_id = $map_id_exploded_part_two[0];
+
+  // Make FAPI checkboxes values usable for javascript.
+  if (isset($settings['leaflet_geojson_widget_tools']) && is_array($settings['leaflet_geojson_widget_tools'])) {
+    foreach($settings['leaflet_geojson_widget_tools'] as $key => $tool) {
+      if ($key === $tool) {
+        $leaflet_geojson_widget_tools[$key] = TRUE;
+      }
+      else {
+        $leaflet_geojson_widget_tools[$key] = FALSE;
+      }
+    }
+  }
+  else {
+    $leaflet_geojson_widget_tools = array();
+  }
+
+  if (isset($element['value']['#default_value'])) {
+    $features = json_decode($element['value']['#default_value']);
+  }
+  else {
+    $features = array();
+  }
+
+  // Add the javascript settings to Drupal.settings.
+  drupal_add_js(array('leaflet_geojson_widget' => array(
+    $map_id => array(
+      'map' => $map_id,
+      'tools' => $leaflet_geojson_widget_tools,
+      'textfield' => $element['value']['#id'],
+      'features' => $features
+    ))
+  ), 'setting');
+
+  return $element;
+}

@@ -1,0 +1,14 @@
+name = Atlast map Locations
+core = 7.x
+package = Atlast
+dependencies[] = features
+dependencies[] = text
+features[features_api][] = api:1
+features[field_base][] = body
+features[field_base][] = field_map_location_geojson
+features[field_instance][] = node-map_location-body
+features[field_instance][] = node-map_location-field_map_location_geojson
+features[node][] = map_location
+features_exclude[field][node-map_location-body] = node-map_location-body
+features_exclude[field][node-map_location-field_map_location_geojson] = node-map_location-field_map_location_geojson
+project path = sites/all/modules/features

@@ -1,0 +1,4 @@
+name = Leaflet GeoJSON Widgtet
+description = Leaflet GeoJSON Widgtet
+core = 7.x
+dependencies[] = leaflet
