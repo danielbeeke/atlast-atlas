@@ -56,6 +56,9 @@ function atlast_map_locations_leaflet_geojson_widget_map_alter(&$map, $form) {
   }
 }
 
+/**
+ * Get the Atlast instance we are using now.
+ */
 function atlast_map_locations_get_instance() {
   $instance_nid = db_select('node', 'n')
   ->fields('n', array('nid'))
@@ -71,6 +74,7 @@ function atlast_map_locations_get_instance() {
 
 /**
  * Implements hook_node_presave().
+ * Calculates the bounding box.
  */
 function atlast_map_locations_node_presave($node) {
   if ($node->type == 'atlast_instance') {
