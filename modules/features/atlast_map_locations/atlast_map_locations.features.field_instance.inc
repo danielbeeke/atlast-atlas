@@ -114,14 +114,18 @@ function atlast_map_locations_field_default_field_instances() {
         'type' => 'text_default',
         'weight' => 0,
       ),
-      'teaser' => array(
+      'full' => array(
         'label' => 'hidden',
         'module' => 'text',
-        'settings' => array(
-          'trim_length' => 600,
-        ),
-        'type' => 'text_summary_or_trimmed',
+        'settings' => array(),
+        'type' => 'text_default',
         'weight' => 0,
+      ),
+      'teaser' => array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => 7,
       ),
     ),
     'entity_type' => 'node',
@@ -153,16 +157,33 @@ function atlast_map_locations_field_default_field_instances() {
     'display' => array(
       'default' => array(
         'label' => 'above',
-        'module' => 'text',
-        'settings' => array(),
-        'type' => 'text_default',
+        'module' => 'leaflet_geojson_formatter',
+        'settings' => array(
+          'height' => '100px',
+          'map' => 'mapbox-warden',
+        ),
+        'type' => 'leaflet_geojson',
+        'weight' => 1,
+      ),
+      'full' => array(
+        'label' => 'hidden',
+        'module' => 'leaflet_geojson_formatter',
+        'settings' => array(
+          'height' => '200px',
+          'map' => 'mapbox-warden',
+        ),
+        'type' => 'leaflet_geojson',
         'weight' => 1,
       ),
       'teaser' => array(
-        'label' => 'above',
-        'settings' => array(),
-        'type' => 'hidden',
-        'weight' => 0,
+        'label' => 'hidden',
+        'module' => 'leaflet_geojson_formatter',
+        'settings' => array(
+          'height' => '200px',
+          'map' => 'mapbox-warden',
+        ),
+        'type' => 'leaflet_geojson',
+        'weight' => 1,
       ),
     ),
     'entity_type' => 'node',
