@@ -41,3 +41,55 @@ function atlast_map_locations_json_deliver($render, $jsonp = FALSE) {
 
   print $json;
 }
+
+/**
+ * Implements hook_leaflet_geojson_widget_map_alter().
+ */
+function atlast_map_locations_leaflet_geojson_widget_map_alter(&$map, $form) {
+  if ($form['type']['#value'] != 'atlast_instance' && isset($form['type']['#value'])) {
+    $atlast_instance = atlast_map_locations_get_instance();
+
+    $bounds = json_decode($atlast_instance->field_atlast_instance_bounds[LANGUAGE_NONE][0]['value']);
+
+    $map['settings']['maxBounds'] = $bounds;
+
+  }
+}
+
+function atlast_map_locations_get_instance() {
+  $instance_nid = db_select('node', 'n')
+  ->fields('n', array('nid'))
+  ->condition('status', 0,'>')
+  ->condition('type', 'atlast_instance','=')
+  ->execute()
+  ->fetchField();
+
+  if (is_numeric($instance_nid)) {
+    return node_load($instance_nid);
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function atlast_map_locations_node_presave($node) {
+  if ($node->type == 'atlast_instance') {
+    geophp_load();
+    $polygon_geojson = $node->field_atlast_instance_polygon[LANGUAGE_NONE][0]['value'];
+    $GeoJSON = new GeoJSON();
+
+    $polygon = $GeoJSON->read($polygon_geojson);
+    $bounding_box = $polygon->getBBox();
+
+    $bounding_box_leaflet = array(
+      array($bounding_box['miny'], $bounding_box['minx']),
+      array($bounding_box['maxy'], $bounding_box['maxx']),
+    );
+
+    $node->field_atlast_instance_bounds[LANGUAGE_NONE][0]['value'] = json_encode($bounding_box_leaflet);
+  }
+}
+
+
+
+

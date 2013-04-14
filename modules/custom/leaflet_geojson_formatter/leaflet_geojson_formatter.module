@@ -1,0 +1,123 @@
+<?php
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function leaflet_geojson_formatter_field_formatter_info() {
+  $map_keys = array_keys(leaflet_map_get_info());
+
+  return array(
+    'leaflet_geojson' => array(
+      'label' => t('Leaflet GeoJSON'),
+      'field types' => array('text_long'),
+      'settings'  => array(
+        'map' => $map_keys[0],
+        'height' => '100px'
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function leaflet_geojson_formatter_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  if ($display['type'] == 'leaflet_geojson') {
+    // Get all maps of the site, prepare them for a select.
+    foreach (leaflet_map_get_info() as $key => $map) {
+      $map_options[$key] = $map['label'];
+    }
+
+    $element['map'] = array(
+      '#type' => 'select',
+      '#title' => t('Map'),
+      '#default_value' => $settings['map'],
+      '#required' => TRUE,
+      '#options' => $map_options
+    );
+
+    $element['height'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Height'),
+      '#default_value' => $settings['height'],
+      '#required' => TRUE,
+    );
+
+    return $element;
+  }
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function leaflet_geojson_formatter_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = '';
+
+  if ($display['type'] == 'leaflet_geojson') {
+    $map = leaflet_map_get_info($settings['map']);
+    $summary = t('Map: !map<br /> Height: !height', array('!map' => $map['label'], '!height' => $settings['height']));
+  }
+
+  return $summary;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function leaflet_geojson_formatter_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  $settings = $display['settings'];
+
+  switch ($display['type']) {
+    case 'leaflet_geojson':
+      $map = leaflet_map_get_info($settings['map']);
+
+      $map['settings']['center'] = array(
+        'lat' => 39.50,
+        'lng' => -98.35,
+      );
+
+      $map['settings']['zoom'] = 6;
+      $map['settings']['attributionControl'] = FALSE;
+      $map['settings']['scrollWheelZoom'] = FALSE;
+      $map['settings']['zoomControl'] = FALSE;
+      $map['settings']['dragging'] = FALSE;
+
+      foreach ($items as $delta => $item) {
+        $features = json_decode($item['value']);
+
+        $element[$delta] = array(
+          '#markup' => leaflet_render_map($map, array(), $settings['height']),
+        );
+
+        // Add our javascript so we can manupilate the Leaflet widget.
+        drupal_add_js(drupal_get_path('module', 'leaflet_geojson_formatter') . '/leaflet_geojson_formatter.js');
+
+        // Parse the rendered map variable so we can get the leaflet map id.
+        // This shouldn't be done this way. TODO make this better in the leaflet module.
+        $map_id_exploded = explode('<div id="', $element[$delta]['#markup']);
+        $map_id_exploded_part_two = explode('"', $map_id_exploded[1]);
+        $map_id = $map_id_exploded_part_two[0];
+
+        // Using drupal_add_js instead of the features variable.
+        // It seems the Drupal module is not capable of GeoJSON.
+        drupal_add_js(array('leaflet_geojson_formatter' => array(
+          $map_id => array(
+            'map' => $map_id,
+            'features' => $features
+          ))
+        ), 'setting');
+
+      }
+      break;
+  }
+
+  return $element;
+}
+

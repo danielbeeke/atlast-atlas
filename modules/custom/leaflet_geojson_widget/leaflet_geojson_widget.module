@@ -192,6 +192,10 @@ function leaflet_geojson_widget_field_widget_form(&$form, &$form_state, $field, 
     );
   }
 
+  $map['settings']['attributionControl'] = FALSE;
+
+  drupal_alter('leaflet_geojson_widget_map', $map, $form);
+
   // Render the map.
   $element['map'] = array(
     '#markup' => '<label>' . $instance['label'] . '</label>' . leaflet_render_map($map),

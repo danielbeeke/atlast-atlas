@@ -1,0 +1,4 @@
+name = Leaflet GeoJSON Formatter
+description = Leaflet GeoJSON Formatter
+core = 7.x
+dependencies[] = leaflet

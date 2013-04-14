@@ -18,16 +18,10 @@
             }
           });
 
+          $('#' + settings.textfield).parent().hide();
           Drupal.behaviors.leaflet_geojson_widget.drawnItems[id] = new L.GeoJSON();
+
           map.addLayer(Drupal.behaviors.leaflet_geojson_widget.drawnItems[id]);
-
-
-          if (settings.features) {
-            var oldJSON = new L.GeoJSON(settings.features);
-
-            oldJSON.addTo(Drupal.behaviors.leaflet_geojson_widget.drawnItems[id]);
-          }
-
 
           var drawControl = new L.Control.Draw({
             draw: {
@@ -63,6 +57,30 @@
 
             $('#' + settings.textfield).text(JSON.stringify(json));
           });
+
+          map.on('draw:deleted', function (e) {
+            var type = e.layerType,
+              layer = e.layer;
+
+            var json = Drupal.behaviors.leaflet_geojson_widget.drawnItems[id].toGeoJSON();
+
+            $('#' + settings.textfield).text(JSON.stringify(json));
+          });
+
+
+          if ($(settings.features.geometries).length) {
+            var oldJSON = new L.GeoJSON(settings.features, {
+              onEachFeature: function (feature, layer) {
+                layer.eachLayer(function (innerLayer) {
+                  Drupal.behaviors.leaflet_geojson_widget.drawnItems[id].addLayer(innerLayer);
+                });
+              }
+            });
+
+            var bounds = Drupal.behaviors.leaflet_geojson_widget.drawnItems[id].getBounds();
+            map.fitBounds(bounds);
+          }
+
 
         });
       }
